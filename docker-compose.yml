@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: reachinbox-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: reachinbox
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: reachinbox-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: reachinbox-backend
+    restart: always
+    environment:
+      - PORT=4000
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/reachinbox?schema=public
+      - REDIS_URL=redis://redis:6379
+      - START_SERVER=true
+      - START_WORKER=false
+      - JWT_SECRET=reachinbox_secret_jwt_key_2026_dev_only
+      - GOOGLE_CLIENT_ID=placeholder_client_id
+      - GOOGLE_CLIENT_SECRET=placeholder_client_secret
+      - GOOGLE_CALLBACK_URL=http://localhost:4000/api/auth/google/callback
+      - FRONTEND_URL=http://localhost:3000
+      - ETHEREAL_HOST=smtp.ethereal.email
+      - ETHEREAL_PORT=587
+      - ETHEREAL_FROM=ReachInbox Scheduler <no-reply@reachinbox.ai>
+      - ENABLE_DEV_SANDBOX=false
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: reachinbox-worker
+    restart: always
+    environment:
+      - PORT=4001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/reachinbox?schema=public
+      - REDIS_URL=redis://redis:6379
+      - START_SERVER=false
+      - START_WORKER=true
+      - JWT_SECRET=reachinbox_secret_jwt_key_2026_dev_only
+      - WORKER_CONCURRENCY=5
+      - MIN_EMAIL_DELAY_MS=2000
+      - MAX_EMAILS_PER_HOUR=200
+      - ETHEREAL_HOST=smtp.ethereal.email
+      - ETHEREAL_PORT=587
+      - ETHEREAL_FROM=ReachInbox Scheduler <no-reply@reachinbox.ai>
+      - ENABLE_DEV_SANDBOX=false
+    depends_on:
+      - postgres
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: reachinbox-frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:4000/api
+      - NEXT_PUBLIC_ENABLE_DEV_SANDBOX=false
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:

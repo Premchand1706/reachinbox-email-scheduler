@@ -1,0 +1,67 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String?
+  avatar        String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  senders       Sender[]
+  emailMessages EmailMessage[]
+}
+
+model Sender {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String?
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailMessages EmailMessage[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([userId])
+}
+
+enum EmailStatus {
+  SCHEDULED
+  PROCESSING
+  SENT
+  FAILED
+  RETRYING
+}
+
+model EmailMessage {
+  id             String      @id @default(uuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         Sender      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  recipient      String
+  subject        String
+  body           String
+  scheduledAt    DateTime
+  status         EmailStatus @default(SCHEDULED)
+  attempts       Int         @default(0)
+  sentAt         DateTime?
+  failedAt       DateTime?
+  failureReason  String?
+  bullmqJobId    String?
+  idempotencyKey String      @unique
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([senderId])
+  @@index([idempotencyKey])
+}
