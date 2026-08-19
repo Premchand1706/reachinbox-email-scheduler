@@ -20,7 +20,7 @@ export async function runRecoveryService() {
 
     for (const email of orphanedEmails) {
       const jobId = `email-${email.id}`;
-      
+
       // Check if job exists in BullMQ (active, delayed, waiting, completed, failed, etc.)
       const job = await emailQueue.getJob(jobId);
 
@@ -28,7 +28,7 @@ export async function runRecoveryService() {
         // Job is missing from Redis! We need to recover it.
         const now = new Date();
         const scheduledTime = new Date(email.scheduledAt);
-        
+
         // Calculate appropriate delay
         let delay = scheduledTime.getTime() - now.getTime();
         if (delay < 0) {
